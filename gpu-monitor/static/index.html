@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Monitor</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0f0f1a; color:#e0e0e0; font-family:'Segoe UI',system-ui,sans-serif; padding:16px; min-width:900px; }
+
+/* header */
+.topbar { display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.topbar h1 { font-size:20px; font-weight:600; }
+.topbar .srv-dot { display:flex; align-items:center; gap:6px; font-size:13px; }
+.topbar .srv-dot .d { width:8px; height:8px; border-radius:50%; }
+.topbar .srv-dot .d.on { background:#4caf50; }
+.topbar .srv-dot .d.off { background:#f44336; }
+.spacer { flex:1; }
+.refresh-group { display:flex; align-items:center; gap:10px; }
+.refresh-group span { font-size:13px; color:#666; min-width:80px; text-align:right; }
+.refresh-group button { background:#1a3a5c; color:#ccc; border:1px solid #2a5a8c; padding:6px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+.refresh-group button:hover { background:#2a5a8c; color:#fff; }
+
+/* server section */
+.server-section { margin-bottom:24px; }
+.server-title { font-size:16px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.server-title .dot { width:10px; height:10px; border-radius:50%; }
+.server-title .dot.on { background:#4caf50; }
+.server-title .dot.off { background:#f44336; }
+.server-title .count { font-weight:400; color:#888; font-size:13px; }
+
+/* GPU card grid */
+.gpu-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:10px; margin-bottom:12px; }
+
+/* GPU card */
+.gpu-card { background:#16162a; border-radius:8px; padding:14px 16px; border:1px solid #1e1e3a; }
+.gpu-card:hover { border-color:#2a2a5a; }
+.gpu-card .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.gpu-card .card-header .gpu-name { font-weight:600; font-size:14px; }
+.gpu-card .card-header .gpu-model { font-size:11px; color:#777; }
+.gpu-card .card-header .util-big { font-size:28px; font-weight:700; }
+.gpu-card .card-header .util-big.high { color:#f44336; }
+.gpu-card .card-header .util-big.mid { color:#ff9800; }
+.gpu-card .card-header .util-big.low { color:#4caf50; }
+.gpu-card .card-header .util-big.idle { color:#555; }
+
+.gpu-card .metric { margin-bottom:8px; }
+.gpu-card .metric .label { display:flex; justify-content:space-between; font-size:11px; color:#888; margin-bottom:3px; }
+.gpu-card .metric .label .val { color:#ccc; }
+.gpu-card .metric .bar-bg { height:6px; background:#1e1e3a; border-radius:3px; overflow:hidden; }
+.gpu-card .metric .bar-fill { height:100%; border-radius:3px; transition:width 0.4s; }
+
+.gpu-card .row2 { display:flex; gap:16px; }
+.gpu-card .row2 .metric { flex:1; }
+.gpu-card .temp { font-size:14px; font-weight:600; }
+.gpu-card .temp.hot { color:#f44336; }
+.gpu-card .temp.warm { color:#ff9800; }
+.gpu-card .temp.cool { color:#4caf50; }
+
+/* process table */
+.proc-section { margin-top:6px; }
+.proc-section h4 { font-size:12px; font-weight:500; color:#888; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+.proc-table { width:100%; border-collapse:collapse; font-size:12px; }
+.proc-table th, .proc-table td { padding:5px 10px; text-align:left; border-bottom:1px solid #1e1e3a; }
+.proc-table th { color:#666; font-weight:500; font-size:11px; }
+.proc-table .tag { display:inline-block; background:#1a3a5c; border-radius:3px; padding:1px 6px; font-size:11px; color:#7eb8da; }
+.proc-empty { color:#444; font-size:12px; padding:6px 0; }
+
+/* debug */
+#debug { background:#1a1a0a; border:1px solid #333; border-radius:4px; padding:6px 12px; margin-bottom:12px; font-size:11px; color:#aaa; display:none; }
+#debug .ok { color:#4caf50; }
+#debug .err { color:#f44336; }
+</style>
+</head>
+<body>
+<div id="debug">
+  ECharts: <span id="dbgE">--</span> |
+  WS: <span id="dbgW">--</span> |
+  Data: <span id="dbgD">--</span>
+</div>
+
+<div class="topbar">
+  <h1>GPU Monitor</h1>
+  <div id="serverDots" style="display:flex;gap:12px;"></div>
+  <div class="spacer"></div>
+  <div class="refresh-group">
+    <span id="countdown">Next: --s</span>
+    <button onclick="manualRefresh()">Refresh</button>
+  </div>
+</div>
+<div id="content"></div>
+
+<script>
+(function() {
+  var INTERVAL = 2;
+  var ws = null;
+  var countdownTimer = null;
+  var nextRefresh = 0;
+
+  function colorUtil(v) {
+    if (v === 0) return 'idle';
+    if (v < 50) return 'low';
+    if (v < 80) return 'mid';
+    return 'high';
+  }
+  function colorTemp(v) {
+    if (v < 50) return 'cool';
+    if (v < 80) return 'warm';
+    return 'hot';
+  }
+  function barColor(v, max) {
+    var r = v / (max || 1);
+    if (r < 0.5) return 'rgb(' + Math.round(r*2*255) + ',180,60)';
+    return 'rgb(255,' + Math.round((1-r)*2*180) + ',60)';
+  }
+
+  function render(data) {
+    document.getElementById('debug').style.display = 'block';
+    document.getElementById('dbgE').className = 'ok';
+    document.getElementById('dbgE').textContent = 'ok';
+    document.getElementById('dbgW').className = 'ok';
+    document.getElementById('dbgW').textContent = (data.connected||[]).join(',') || 'connected';
+    document.getElementById('dbgD').className = 'ok';
+    document.getElementById('dbgD').textContent = data.gpus.length + ' GPUs, ' + (data.processes||[]).length + ' procs';
+
+    // server dots
+    var dotsHtml = '';
+    (data.connected||[]).forEach(function(n) {
+      dotsHtml += '<div class="srv-dot"><span class="d on"></span>'+n+'</div>';
+    });
+    (data.errors||[]).forEach(function(e) {
+      dotsHtml += '<div class="srv-dot"><span class="d off"></span>'+e+'</div>';
+    });
+    document.getElementById('serverDots').innerHTML = dotsHtml;
+
+    // group by server
+    var servers = {};
+    data.gpus.forEach(function(g) {
+      if (!servers[g.server]) servers[g.server] = [];
+      servers[g.server].push(g);
+    });
+    var procsByServer = {};
+    (data.processes||[]).forEach(function(p) {
+      if (!procsByServer[p.server]) procsByServer[p.server] = [];
+      procsByServer[p.server].push(p);
+    });
+
+    var html = '';
+
+    Object.keys(servers).sort().forEach(function(srv) {
+      var gpus = servers[srv];
+      gpus.sort(function(a, b) { return a.index - b.index; });
+      var procs = procsByServer[srv] || [];
+      var online = (data.connected||[]).indexOf(srv) >= 0;
+
+      html += '<div class="server-section">';
+      html += '<div class="server-title">';
+      html += '<span class="dot '+(online?'on':'off')+'"></span>';
+      html += srv;
+      html += ' <span class="count">('+gpus.length+' GPUs)</span>';
+      html += '</div>';
+
+      // GPU cards
+      html += '<div class="gpu-grid">';
+      gpus.forEach(function(g) {
+        var uClass = colorUtil(g.utilization);
+        var memUsed = g.memory_used / 1024;
+        var memTotal = g.memory_total / 1024;
+        var memPct = memTotal > 0 ? (memUsed / memTotal * 100) : 0;
+        var tClass = colorTemp(g.temperature);
+
+        html += '<div class="gpu-card">';
+        // header: name + big utilization number
+        html += '<div class="card-header">';
+        html += '<div><div class="gpu-name">GPU '+g.index+'</div><div class="gpu-model">'+g.name+'</div></div>';
+        html += '<div class="util-big '+uClass+'">'+g.utilization+'%</div>';
+        html += '</div>';
+
+        // utilization bar
+        html += '<div class="metric">';
+        html += '<div class="label"><span>Utilization</span><span class="val">'+g.utilization+'%</span></div>';
+        html += '<div class="bar-bg"><div class="bar-fill" style="width:'+g.utilization+'%;background:'+barColor(g.utilization,100)+';"></div></div>';
+        html += '</div>';
+
+        // memory bar
+        html += '<div class="row2">';
+        html += '<div class="metric">';
+        html += '<div class="label"><span>Memory</span><span class="val">'+memUsed.toFixed(1)+' / '+memTotal.toFixed(0)+' GiB</span></div>';
+        html += '<div class="bar-bg"><div class="bar-fill" style="width:'+memPct+'%;background:'+barColor(memPct,100)+';"></div></div>';
+        html += '</div>';
+
+        // temperature
+        html += '<div style="text-align:right;">';
+        html += '<div style="font-size:11px;color:#888;margin-bottom:3px;">Temp</div>';
+        html += '<div class="temp '+tClass+'">'+g.temperature+'°C</div>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '</div>';
+      });
+      html += '</div>';
+
+      // processes
+      html += '<div class="proc-section">';
+      html += '<h4>Processes ('+procs.length+')</h4>';
+      if (procs.length === 0) {
+        html += '<div class="proc-empty">None</div>';
+      } else {
+        procs.sort(function(a, b) { return a.gpu - b.gpu || a.pid - b.pid; });
+        html += '<table class="proc-table"><thead><tr><th>PID</th><th>User</th><th>Process</th><th>GPU</th><th>Memory</th></tr></thead><tbody>';
+        procs.forEach(function(p) {
+          html += '<tr><td>'+p.pid+'</td><td>'+p.user+'</td><td>'+p.name+'</td><td><span class="tag">GPU '+p.gpu+'</span></td><td>'+(p.memory_used/1024).toFixed(1)+' GiB</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      html += '</div>';
+
+      html += '</div>'; // server-section
+    });
+
+    if (Object.keys(servers).length === 0) {
+      html = '<p style="color:#666;text-align:center;padding:60px;">No GPU data — check server connections</p>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function tickCountdown() {
+    var remain = Math.max(0, Math.round((nextRefresh - Date.now()) / 1000));
+    document.getElementById('countdown').textContent = 'Next: ' + remain + 's';
+  }
+  function startCountdown() {
+    nextRefresh = Date.now() + INTERVAL * 1000;
+    if (countdownTimer) clearInterval(countdownTimer);
+    tickCountdown();
+    countdownTimer = setInterval(tickCountdown, 200);
+  }
+
+  function manualRefresh() {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send('refresh');
+  }
+
+  function connect() {
+    document.getElementById('dbgW').textContent = 'connecting...';
+    ws = new WebSocket('ws://' + location.host + '/ws');
+    ws.onopen = function() {
+      document.getElementById('dbgW').className = 'ok';
+      document.getElementById('dbgW').textContent = 'open';
+    };
+    ws.onmessage = function(e) {
+      try {
+        var data = JSON.parse(e.data);
+        render(data);
+        startCountdown();
+      } catch(ex) {
+        document.getElementById('dbgD').className = 'err';
+        document.getElementById('dbgD').textContent = 'parse error: ' + ex.message;
+      }
+    };
+    ws.onclose = function() {
+      document.getElementById('dbgW').className = 'err';
+      document.getElementById('dbgW').textContent = 'closed';
+      if (countdownTimer) clearInterval(countdownTimer);
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = function() {
+      document.getElementById('dbgW').className = 'err';
+      document.getElementById('dbgW').textContent = 'error';
+    };
+  }
+  connect();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# GPU Monitor config
+# Copy this file to config.yaml and edit with your server names.
+# Host, port, user, and key_file are read from ~/.ssh/config automatically.
+#
+# Example:
+#   servers:
+#     - name: myserver
+#
+# The name must match a Host entry in your ~/.ssh/config:
+#   Host myserver
+#       Hostname 10.0.0.1
+#       Port 10022
+#       User alice
+#       IdentityFile ~/.ssh/id_rsa
+
+servers:
+  - name: server1
+  - name: server2

@@ -1,0 +1,13 @@
+# Common ignores
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[oc]
+.venv
+
+# Sensitive per-project configs
+**/config.yaml
