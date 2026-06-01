@@ -1,0 +1,4 @@
+index	doc_id	question	image_path	answer	answer_format	evidence_pages	evidence_sources
+0	mock_doc_0	What is the reported total revenue?	['mock_doc_0_page_1.png', 'mock_doc_0_page_2.png']	100 million	Str	[2]	['Table']
+1	mock_doc_1	Which organization issued the report?	['mock_doc_1_page_1.png']	Example Institute	Str	[1]	['Pure-text (Plain-text)']
+
