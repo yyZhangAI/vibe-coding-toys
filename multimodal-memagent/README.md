@@ -75,5 +75,5 @@ Each JSONL row includes:
 - `max_pages`: limit used for the run
 - `page_outputs`: one entry per visible page with `page_number`, raw model `response`, and `seconds`
 - `final_response`: raw model output from the answer step
-- `final_answer`: extracted content from `<answer>...</answer>` when present, otherwise the raw final response
+- `final_answer`: extracted content from `\boxed{...}` or `<answer>...</answer>` when present, otherwise the raw final response
 - `timing.total_seconds`: full sample inference time

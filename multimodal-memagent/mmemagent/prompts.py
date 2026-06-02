@@ -1,40 +1,37 @@
 NO_MEMORY = "No previous memory"
 
 
-PAGE_MEMORY_PROMPT = """You are a visual long-document memory agent for MMLongBench-DOC.
+PAGE_MEMORY_PROMPT = """You are presented with a problem, an image of a document page that may contain the answer to the problem, and a previous memory. Please inspect the provided document page image carefully and update the memory with the new information that helps to answer the problem. Be sure to retain all relevant details from the previous memory while adding any new, useful information.
 
-Your task is to inspect exactly one document page image and update a compact memory that will help answer the question later.
-Keep useful details from the previous memory. Add only evidence from the current page that may be relevant.
-If the page is irrelevant, preserve the existing memory and briefly note that no relevant evidence was found.
-Do not answer the final question yet.
-
-<question>
+<problem>
 {question}
-</question>
-
-<page>
-Page {page_number} of {page_count}
-</page>
-
-<previous_memory>
-{memory}
-</previous_memory>
-
-Return only the updated memory in plain text."""
-
-
-FINAL_ANSWER_PROMPT = """You are answering an MMLongBench-DOC question from the memory collected across document pages.
-
-Use only the memory below. If the memory does not contain enough evidence to answer, answer "Not answerable".
-Give a brief rationale, then put the concise final answer inside <answer>...</answer>.
-
-<question>
-{question}
-</question>
+</problem>
 
 <memory>
 {memory}
-</memory>"""
+</memory>
+
+<document_page>
+Page {page_number} of {page_count}
+The corresponding document page image is provided in the image input.
+</document_page>
+
+Updated memory:
+"""
+
+
+FINAL_ANSWER_PROMPT = """You are presented with a problem and a previous memory. Please answer the problem based on the previous memory and put the answer in \\boxed{{}}.
+
+<problem>
+{question}
+</problem>
+
+<memory>
+{memory}
+</memory>
+
+Your answer:
+"""
 
 
 def build_page_prompt(question: str, memory: str, page_number: int, page_count: int) -> str:
@@ -48,4 +45,3 @@ def build_page_prompt(question: str, memory: str, page_number: int, page_count: 
 
 def build_final_prompt(question: str, memory: str) -> str:
     return FINAL_ANSWER_PROMPT.format(question=question, memory=memory or NO_MEMORY)
-

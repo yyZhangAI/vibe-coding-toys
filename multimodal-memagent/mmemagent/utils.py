@@ -77,7 +77,34 @@ def extract_answer(text: str) -> str:
     match = re.search(r"<answer>(.*?)</answer>", text, flags=re.IGNORECASE | re.DOTALL)
     if match:
         return match.group(1).strip()
+    boxed = extract_boxed_answer(text)
+    if boxed is not None:
+        return boxed.strip()
     return text.strip()
+
+
+def extract_boxed_answer(text: str) -> str | None:
+    marker = "\\boxed{"
+    start = text.find(marker)
+    if start < 0:
+        return None
+    i = start + len(marker)
+    depth = 1
+    chars: list[str] = []
+    while i < len(text):
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+            chars.append(ch)
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return "".join(chars)
+            chars.append(ch)
+        else:
+            chars.append(ch)
+        i += 1
+    return None
 
 
 @contextmanager
@@ -88,4 +115,3 @@ def timer() -> Iterable[dict[str, float]]:
     finally:
         box["end"] = time.perf_counter()
         box["seconds"] = box["end"] - box["start"]
-
