@@ -1,7 +1,7 @@
 NO_MEMORY = "No previous memory"
 
 
-PAGE_MEMORY_PROMPT = """You are presented with a problem, an image of a document page that may contain the answer to the problem, and a previous memory. Please inspect the provided document page image carefully and update the memory with the new information that helps to answer the problem. Be sure to retain all relevant details from the previous memory while adding any new, useful information.
+PAGE_MEMORY_PROMPT = """You are presented with a problem, an image of a document page that may contain the answer to the problem, and a previous memory. The previous memory is the information you have accumulated from earlier document pages. Please inspect the provided document page image carefully and update the memory with the new information that helps to answer the problem. Be sure to retain all relevant details from the previous memory while adding any new, useful information.
 
 <problem>
 {question}
@@ -20,7 +20,7 @@ Updated memory:
 """
 
 
-FINAL_ANSWER_PROMPT = """You are presented with a problem and a previous memory. Please answer the problem based on the previous memory and put the answer in \\boxed{{}}.
+FINAL_ANSWER_PROMPT = """You are presented with a problem and a previous memory. The previous memory is the information you have accumulated from the document pages you inspected. Please answer the problem based on the previous memory and put the answer in \\boxed{{}}.
 
 <problem>
 {question}
