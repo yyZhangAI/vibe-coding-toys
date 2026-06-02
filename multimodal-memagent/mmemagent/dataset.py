@@ -8,6 +8,7 @@ from .utils import parse_listish, read_tsv_rows, resolve_image_paths
 
 
 IMAGE_COLUMNS = ("image_path", "images", "page_images", "pages")
+OMITTED_METADATA_COLUMNS = IMAGE_COLUMNS + ("image",)
 
 
 @dataclass
@@ -28,6 +29,10 @@ def _first_present(row: dict[str, Any], keys: tuple[str, ...]) -> Any:
         if key in row and row[key] not in (None, ""):
             return row[key]
     return None
+
+
+def compact_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in row.items() if key not in OMITTED_METADATA_COLUMNS}
 
 
 def load_mmlongbench_doc_tsv(
@@ -63,6 +68,13 @@ def load_mmlongbench_doc_tsv(
                 )
 
         sample_id = str(row.get("index") or row.get("id") or offset)
-        samples.append(DocSample(sample_id=sample_id, question=question, page_images=page_images, metadata=row))
+        samples.append(
+            DocSample(
+                sample_id=sample_id,
+                question=question,
+                page_images=page_images,
+                metadata=compact_metadata(row),
+            )
+        )
 
     return samples

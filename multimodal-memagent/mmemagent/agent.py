@@ -43,7 +43,7 @@ class MultimodalMemoryAgent:
         if self.config.max_pages < 1:
             raise ValueError("AgentConfig.max_pages must be at least 1.")
         memory = NO_MEMORY
-        page_traces: list[dict[str, Any]] = []
+        page_outputs: list[dict[str, Any]] = []
         page_images = sample.page_images[: self.config.max_pages]
 
         with timer() as sample_timer:
@@ -60,14 +60,11 @@ class MultimodalMemoryAgent:
                     response = self.model.generate(image_path, prompt, dataset=self.config.dataset_name)
                 self._log_output(f"sample={sample.sample_id} page={page_idx}/{page_count} output", response)
                 memory = response.strip() or memory
-                page_traces.append(
+                page_outputs.append(
                     {
                         "page_number": page_idx,
-                        "image": image_path,
-                        "prompt": prompt,
                         "response": response,
-                        "memory_after": memory,
-                        "timing": {"seconds": turn_timer["seconds"]},
+                        "seconds": turn_timer["seconds"],
                     }
                 )
 
@@ -86,9 +83,7 @@ class MultimodalMemoryAgent:
             "total_page_count": len(sample.page_images),
             "max_pages": self.config.max_pages,
             "metadata": sample.metadata,
-            "page_traces": page_traces,
-            "memory": memory,
-            "final_prompt": final_prompt,
+            "page_outputs": page_outputs,
             "final_response": final_response,
             "final_answer": final_answer,
             "timing": {

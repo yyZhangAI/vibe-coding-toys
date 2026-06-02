@@ -22,6 +22,7 @@ python -m mmemagent.run_mmlongbench_doc \
   --image-root examples/images \
   --output outputs/mock_results.jsonl \
   --backend mock \
+  --limit 8 \
   --allow-missing-images \
   --verbose
 ```
@@ -50,6 +51,7 @@ For mixed data parallel plus tensor parallel, separate worker GPU groups with se
 
 `--max-pages` limits the pages visible to the agent from page 1 onward. The default is `120`.
 `--verbose` prints each model input in red and each model output in green, following the style used by VLMEvalKit.
+`--limit N` runs only the first `N` samples, which is useful for smoke tests such as `--limit 8`.
 
 ## TSV expectations
 
@@ -61,6 +63,7 @@ The loader is intentionally permissive. It expects at least:
 Image columns may be Python/JSON list strings such as `['doc_0_0.jpg', 'doc_0_1.jpg']`, JSON arrays, or comma-separated strings. Relative paths are resolved under `--image-root`.
 
 Common MMLongBench metadata columns such as `index`, `doc_id`, `answer`, `answer_format`, `evidence_pages`, and `evidence_sources` are preserved in the output.
+Large image-bearing columns such as `image`, `image_path`, `images`, `page_images`, and `pages` are used for loading but omitted from output metadata.
 
 ## Output fields
 
@@ -70,9 +73,7 @@ Each JSONL row includes:
 - `page_count`: number of pages actually visible to the agent after `--max-pages`
 - `total_page_count`: number of page images listed by the TSV row
 - `max_pages`: limit used for the run
-- `page_traces`: one entry per page with image path, update prompt, raw model output, memory after the page, and turn time
-- `memory`: the final accumulated memory
-- `final_prompt`
+- `page_outputs`: one entry per visible page with `page_number`, raw model `response`, and `seconds`
 - `final_response`: raw model output from the answer step
 - `final_answer`: extracted content from `<answer>...</answer>` when present, otherwise the raw final response
 - `timing.total_seconds`: full sample inference time

@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--allow-missing-images", action="store_true")
     parser.add_argument("--verbose", action="store_true", help="Print model inputs and outputs during inference.")
+    parser.add_argument("--limit", type=int, default=None, help="Run only the first N samples for a smoke test.")
 
     parser.add_argument("--min-pixels", type=int, default=None)
     parser.add_argument("--max-pixels", type=int, default=None)
@@ -63,6 +64,8 @@ def main() -> None:
     args = parse_args()
     if args.max_pages < 1:
         raise ValueError("--max-pages must be at least 1.")
+    if args.limit is not None and args.limit < 1:
+        raise ValueError("--limit must be at least 1 when set.")
     output_path = Path(args.output)
     samples = load_mmlongbench_doc_tsv(
         args.tsv,
@@ -70,6 +73,8 @@ def main() -> None:
         max_pages=args.max_pages,
         allow_missing_images=args.allow_missing_images or args.backend == "mock",
     )
+    if args.limit is not None:
+        samples = samples[: args.limit]
 
     generation_config = GenerationConfig(
         max_new_tokens=args.max_new_tokens,
